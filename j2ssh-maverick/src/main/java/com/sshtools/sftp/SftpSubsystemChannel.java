@@ -678,16 +678,40 @@ public class SftpSubsystemChannel extends SubsystemChannel {
 
 			UnsignedInteger32 requestId;
 
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			
+			int maxRead = blockSize;
+			
 			while (true) {
-
+				
+				byte[] buf = new byte[maxRead];
+				
 				buffered = in.read(buf);
-				if (buffered == -1)
-					break;
+				
+				if (buffered == -1) {
+				    // Writing the last block
+				    if (maxRead > 0 && maxRead!=blockSize) {
+					requests.addElement(postWriteRequest(handle, transfered, baos.toByteArray(),
+						0, (blockSize - maxRead)));
+    			    
+				    }
+				    break;
+				}
+				
+		  		maxRead -=buffered;
+				
+				if ( buffered > 0 ) {
+				    baos.write(buf, 0, buffred);
+				}
+				
+				if (maxRead != 0) {
+				   continue;
+				}
+				
+				requests.addElement(postWriteRequest(handle, transfered, baos.toByteArray(),
+						0, (blockSize - maxRead)));
 
-				requests.addElement(postWriteRequest(handle, transfered, buf,
-						0, buffered));
-
-				transfered += buffered;
+				transfered += (blockSize-maxRead);
 
 				if (progress != null) {
 
@@ -702,7 +726,6 @@ public class SftpSubsystemChannel extends SubsystemChannel {
 					requests.removeElementAt(0);
 					getOKRequestStatus(requestId);
 				}
-
 			}
 
 			for (Enumeration<UnsignedInteger32> e = requests.elements(); e
